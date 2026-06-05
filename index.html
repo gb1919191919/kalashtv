@@ -13,10 +13,19 @@
             overflow: hidden;
             background-color: black;
         }
-        video {
+        #player-container {
+            /* Slight overscale to hide YouTube UI elements at the edges */
+            position: absolute;
+            top: -5%; 
+            left: -5%;
+            width: 110%;
+            height: 110%;
+            pointer-events: none; /* Prevent clicking on the YouTube player itself */
+        }
+        iframe {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* cover ensures the 1920x1080 fills the screen entirely */
+            border: none;
         }
         #overlay {
             position: absolute;
@@ -32,35 +41,71 @@
             font-family: sans-serif;
             font-size: 2vw;
             cursor: pointer;
+            background: transparent;
         }
     </style>
 </head>
 <body>
     <div id="overlay">Click anywhere to enable audio if needed</div>
-    <video id="tv-video" autoplay loop muted playsinline>
-        <source src="video.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+    <div id="player-container">
+        <!-- The Iframe API will replace this div with an iframe -->
+        <div id="player"></div>
+    </div>
 
     <script>
-        const video = document.getElementById('tv-video');
-        const overlay = document.getElementById('overlay');
+        // Load the IFrame Player API code asynchronously.
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-        // Hide overlay and unmute on first click/tap
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: 'ohyVRvb9uvo',
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 0,       // Hide controls
+                    'disablekb': 1,      // Disable keyboard controls
+                    'loop': 1,           // Loop the video
+                    'playlist': 'ohyVRvb9uvo', // Required for looping a single video
+                    'modestbranding': 1, // Minimal YouTube branding
+                    'rel': 0,            // No related videos at the end
+                    'showinfo': 0,       // Hide title
+                    'mute': 1,           // Mute initially to allow autoplay
+                    'vq': 'hd1080'       // Request 1080p quality
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            event.target.setPlaybackQuality('hd1080'); // Force HD 1080p
+            event.target.playVideo();
+        }
+
+        function onPlayerStateChange(event) {
+            // Fallback: If it ends, play it again
+            if (event.data === YT.PlayerState.ENDED) {
+                player.playVideo(); 
+            }
+        }
+
+        // Handle the audio unmute overlay
+        const overlay = document.getElementById('overlay');
         document.body.addEventListener('click', () => {
             if (overlay.style.display !== 'none') {
                 overlay.style.display = 'none';
-                video.muted = false;
-                // If it was paused due to autoplay policy, try to play again
-                video.play().catch(e => console.log("Play failed:", e));
+                if(player && player.unMute) {
+                    player.unMute();
+                    player.setVolume(100);
+                }
             }
-        });
-
-        // Some TVs might need this to force autoplay
-        window.addEventListener('load', () => {
-            video.play().catch(e => {
-                console.log("Autoplay prevented, waiting for user interaction");
-            });
         });
     </script>
 </body>
